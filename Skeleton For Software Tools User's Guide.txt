@@ -1,0 +1,449 @@
+Skeleton For Software Tools--User's Guide
+*****************************************
+
+Using SKELETON/BAS
+==================
+LOAD "SKELETON/BAS". Edit Line 1 to reflect the name of your new "Software Tools" program
+(see COPY/BAS for an example). Now SAVE as your new program (ie, SAVE "COPY/BAS").
+At this point, you can begin writing your new program, starting at line 40000. (You may
+also want to optionally write an "opening comment" in line 39999, as in the COPY/BAS
+example below.)
+
+Line Numbering
+--------------
+Your "main()" program starts at line 40000.
+You can define subroutines for main() with line numbers 20000..39990.
+Your program can "run off the end" or GOTO 59990; either method will "gracefully
+exit" back to SH/BAS.
+Example:
+	1 '	COPY/BAS -- APR 24, 2023
+
+	...
+
+	39999 '
+		COPY -- COPY STANDARD INPUT TO STANDARD OUTPUT
+
+	40000 GOSUB 2100: IF NOT VR%(0) THEN GOTO 59990
+	40100 VA$(0)= VR$(0): GOSUB 2300
+	40110 GOTO 40000
+
+	...
+
+
+Software Tools Procedures and Data
+==================================
+
+Note:		For more detail on each element, see the file "Skeleton Usage Guide",
+		which lists in detail all subroutines, functions, and arrays
+		used by SKELETON.
+
+getchar()		Read 1 char/byte from stdin
+---------
+Usage:		GOSUB 2100
+Result:		VR%(0)	succeed/fail (-1/0).	Fail on EOF
+Returns:	VR$(0)	one char/byte
+Typical usage:	200	GOSUB 2100
+			IF VR%(0) THEN
+				PRINT VR$(0);
+			ELSE
+				RETURN
+
+putchar( VA$(0))	Print string or char in VA$(0) to stdout
+----------------
+Usage:		GOSUB 2300
+Inputs:		VA$(0)	String or char to be output
+Typical Usage:	100	VA$(0)= "HELLO, WORLD"
+		200	GOSUB 2300
+
+putDec( Num!,		Print Num! in min Width% field on stdout
+	Width%)
+---------------
+Usage:		GOSUB 60350
+Inputs:		VA%(1)	Width%
+		VA!(0)	Num!
+Typical Usage:	100	VA%(1)= 10 ' Field width"
+			VA!(0)= 6.28
+		200	GOSUB 60350 ' PutDec()
+
+Defined Functions:
+..................
+
+FN MD!( S!, D!)		Modulo( S, divisor)
+---------------		Returns single-precision S mod D
+Defined in:	64011
+
+FN MN%( A%, B%)		Minimum( a, b)
+---------------		Returns the minimum of a, b
+Defined in:	64010
+
+FN MX%( A%, B%)		Maximum( a, b)
+---------------		Returns the maximum of a, b
+Defined in:	64010
+
+FN XR%( A%, B%)		XOR( a, b)
+---------------		Returns a XOR b
+Defined in:	64011
+
+
+Additonal Useful Procedures and Data
+====================================
+
+getc( VA%(0))		Read 1 char/byte from device/file# specified by VA%(0)
+-----------------
+Prerequisite:	If reading from a disk file, it must have first been fOpen()ed.
+Usage:		GOSUB 2000
+Constraints:	VA%(0)	Device (-1..-3) or FD# to read from
+Result:		VR%(0)	succeed/fail (-1/0).	Fail on EOF
+Returns:	VR$(0)	one char/byte
+
+Typical usage:	100	VA%(0)= -1 ' Read from keyboard
+		200	GOSUB 2000
+			IF VR%(0) THEN
+				PRINT VR$(0);
+			ELSE
+				RETURN
+
+putNum( FD%,		Print Num! in min Width% field on file/dev FD%
+	Num!,
+	Width%)
+---------------
+Usage:		GOSUB 60300
+Inputs:		VA%(0)	FD#
+		VA%(1)	Width%
+		VA!(0)	Num!
+Typical Usage:	100	VA%(0)= -2 ' Screen output
+			VA%(1)= 10 ' Field width"
+			VA!(0)= 3.14
+		200	GOSUB 60300 ' PutNum()
+
+puts( VA$(0), VA%(0))	Print string or char in VA$(0) to dev/file# specified by VA%(0)
+---------------------
+Usage:		GOSUB 60100
+Quick Link:	GOSUB 2200
+Inputs:		VA$(0)	String or char to be output
+		VA%(0)	Device (-1..-3) or FD# to send to
+Typical Usage:	100	VA$(0)= "HELLO, WORLD"
+			VA%(0)= -2 ' Screen
+		200	GOSUB 60100
+Note:		An incorrect dev # (0..-1, -4..) will serve as a "bit bucket".
+			Output will disappear.
+
+fOpen( VA$(0),		Open file with Name in VA$(0),
+	opt VA$(1),		Mode described as a char in set 'IORGPA' in VA$(1)
+	opt VA%(1))			or '123456' in VA%(1)
+	opt VA%(0))		Buffer # in VA%(0)
+-------------------			or system-assigned if VA%(0) is 0			
+Usage:		GOSUB 60500
+Inputs		VA$(0)		Filename
+		VA$(1) **or**	Mode,	1 of 'IORGPA' **or**
+		VA%(1)			1 or1..6
+		VA%(0)		Buffer # 	1..15, **or**
+					0 for system-assigned buffer #
+Results:	VR%(0)		Success/Failure (-1/0)
+Returns:	VR%(1)		assigned FD#
+Notes:		1. File may be opened in one of the following modes:
+			in VA$(1)	or in VA%(1)	Mode
+			I		1		Input
+			O		2		Output
+			R		3		Random
+			G		4		getc()
+			P		5		putc()
+			A		6		Append	[not currently implemented]
+		2. A disk buffer number can be indicated in VA%(0).
+			If that is left with a value of 0, fOpen() will assign
+			a buffer number.
+		3. The buffer number will not be allowed to be greater than the number
+			given to the FILES?_ prompt when BASIC was booted.
+		4. The final assigned buffer number is returned in VR%(1)
+Typical Usage:	100	VA$(0)= "MYFILE/DAT:1"
+			VA$(1)= "O"
+			VA%(0)= 0 ' Have fOpen() assign FD#
+		200	GOSUB 60500
+		300	IF VR%(0) THEN
+				FL%= VR%(1) '
+				Save Buffer # in FL%
+			ELSE
+				RETURN '
+				File Error
+
+FN DN%( 0)			MaxOpenFiles()
+----------			The value ENTERed to the FILES? prompt when initiating BASIC
+				(default value: 3)
+Defined in:	64034
+Used in:	60505	' OPEN routine
+Note:		only for Model I TRSDOS 2.3
+
+FN DX!( F%)		TotalBytes( file%)
+-----------		Total number of bytes/chars in file% (ie, EOF is when
+				byte # FN DX!( F%) has been read).
+Defined in:	64036
+Used in:	60700	' getc() mode OPEN routine
+Uses:		FN DQ%( F%)	' offset to last char/byte in file%
+		FN DE!( F%)	' last record # in file%
+
+FN C1%( 0)		Cassette #1
+----------		returns -4
+Defined in:	64050
+
+FN C2%( 0)		Cassette #2
+----------		returns -5
+Defined in:	64050
+
+FN KY%( 0)		Keyboard
+----------		returns -1
+Defined in:	64050
+
+FN PR%( 0)		Printer
+----------		returns -3
+Defined in:	64050
+
+FN SC%( 0)		Screen
+----------		returns -2
+Defined in:	64050
+
+ScanArgv( VA$(0))	Scan Argv[] for occurence of member in VA$(0)
+-----------------	Return S/F in VR%(0), subscript of matching Argv[] in VR%(1)
+Usage:		GOSUB 64600
+Input(s):	VA$(0)	Set of strings to match (ie, "-h -H -? -usage --H --?")
+Constraints:	SY%(0,0) / argc. If 0, no matching done.
+Returns:	VR%(0)	S/F
+		VR%(1)	If VR%(0) is S, subscript of Argv[] where match occurred.
+Typical Usage:	' TYPICALLY USED IN SYSTEM INITIALIZATION
+		100	VA$(0)= "-H --H -? --? -USAGE --USAGE"
+		200	GOSUB 64600
+			IF VR%(0) THEN
+				GOSUB xxxxx:
+				GOTO 59990 '
+				Print Usage on stderr;
+				GOTO Exit
+
+FN AL$( 0)		Alphabetic()
+----------		Returns alpha character set
+Defined in:	64006
+Uses:		FN LC$(),
+		FN UC$()
+Used in:	DEF FN AN$()
+
+FN AN$( 0)		AlphaNumeric()
+----------		Returns alphanumeric character set
+Defined in:	64006
+Uses:		FN AL$(),
+		FN NM$()
+
+FN LC$( 0)		Lowercase()
+----------		Returns lowercase character set
+Defined in:	64006
+Used in:	DEF FN AL$()
+
+FN NM$( 0)		Numeric()
+----------		Returns numeric character set
+Defined in:	64006
+Used in:	DEF FN AN$()
+
+FN UC$( 0)		Uppercase()
+----------		Returns uppercase character set
+Defined in:	64006
+Used in:	DEF FN AN$()
+
+FN US$()		User-defined character set
+--------		Returns anything in SY$(14,0)
+Defined in:	64006
+
+FN WS$( 0)		WhiteSpace()
+----------		Returns whitespace character set
+Defined in:	64006
+
+FN WP!( A%)		WordPeek( addr%)
+-----------		Returns unsigned 16-bit value at addr%, addr%+1
+Defined in:	64016
+Used in:	DEF FN DE!()
+Uses:		FN IS!()
+		FN SW%()
+Note:		Use FN SI%( FN WP!( A%)) to return a signed integer representation.
+
+FN SI%( A!)		RealAddrToSigned( addr!)
+-----------		Converts single-precision real address (ie, "65535") to
+			BASIC signed integer address (ie, "-1")
+Defined in:	64012
+
+Usage()			If user has specified any one of these options:
+-------			-H --H -? --? -USAGE --USAGE
+			print command usage help on stderr;
+			and if SY%(6,0) set (default), then exit
+Before using:	either
+		a) Edit DATA lines 64950..64996 to enter "usage" text.
+		b) Code new DATA lines *before* line 64950, ensuring that the
+			last DATA entry is a simple "."
+Usage:		GOSUB 64900
+Notes:		1. Called by default during initialization at line 65300
+			("Optional Packages"). Comment out that line if not wanted.
+		2. If SY%(6,0) is set (default), gracefully exits and resumes "SH/BAS".
+
+ExitGracefully()	Exits program "gracefully"; resumes "SH/BAS"
+----------------
+Usage:		GOTO 59990
+Note:		Used in Usage() at line 64940
+
+PutErr( VA$(10))	Prints Error Msg in VA$(10), terminated with a CR, to
+----------------	stderr. If stderr not yet assigned, prints to screen.
+Usage:		GOSUB 65520
+Input:		VA$(10)		Error Message
+Result:		VR%(0)		0 -- failure/error occured
+Notes:		a) Prefixes "ERROR: "
+		b) appends a CR
+Typical Usage:	100	VA$(10)= "DISK FULL"
+		200	GOSUB 65520
+		300	IF NOT VR%(0) THEN
+				GOTO 59990 ' ExitGracefully()
+
+FN AC%( x)		Returns "argc", the index of the last entry in argv[] {AV$()}.
+----------
+Defined in:	64042
+
+FN E4%( E%)		Converts error code from BASIC's ERR function into
+-----------		codes described in "TRS-DOS 2.3 pp7-77..7-78
+Defined in:	64020
+Used in:	65500	' "File Not Found" error handler 
+
+
+
+
+Using "SH/BAS"
+==============
+
+To use your "Software Tools" program, run "SH/BAS". 
+Example command lines:
+COPY				copy from the keyboard to the screen
+COPY >TEXTFILE/ASC		copy from the keyboard to disk file "TEXTFILE/ASC"
+COPY <TEXTFILE/ASC		copy disk file "TEXTFILE/ASC" to the screen
+COPY <TEXTFILE/ASC >TEXTCOPY:2	copy disk file "TEXTFILE/ASC" to disk file "TEXTCOPY"
+					on drive :2
+COPY <TEXTFILE/ASC >>TEXTCOPY	append contents of disk file "TEXTFILE/ASC" to
+				whatever is already in disk file "TEXTCOPY". (Not yet
+				implemented in SKELETON. When implemented, both
+				stdout and stderr will support append mode.)
+<TEXTFILE/ASC COPY >/DEV/LPR	copy disk file "TEXTFILE/ASC" to the printer. Note that
+					redirection can be indicated anywhere on the
+					command line. This could have been entered as:
+					>/DEV/LPR <TEXTFILE/ASC COPY
+					COPY >/DEV/LPR <TEXTFILE/ASC
+				the following "devices" are available:
+				keyboard	input only	default
+				screen		output only	default
+				/DEV/ + anything containing either
+					"PR" or
+					"LP"	output only	printer
+					examples:
+						/DEV/LPR
+						/DEV/PR
+						/DEV/PRINTER1
+						/DEV/LP01
+<TEXTFILE/ASC COPY >/DEV/CAS02	/DEV/ + anything containing either
+					"CAS" or
+					"TAP"	input + output	cassette
+					followed by a number whose absolute (positive)
+						value resolves to a 1 or 2,
+						for cassette #-1 or #-2
+					examples:
+						/DEV/CAS1
+						/DEV/TAPE02
+						/DEV/CASSETTE-1
+COPY </DEV/NUL >EMPTY/FIL:1	creates disk file EMPTY/FIL on drive 1 with a size
+					of 0 bytes.
+					If /DEV/NUL is used as output, anything sent
+					to it "disappears" (useful when only stderr
+					output is desired, and stdout output should
+					be suppressed).
+COPY <TEXTFILE/ASC 3>ERRFILE	copy disk file "TEXTFILE/ASC" to the disk file ERRFILE.
+					 Anything from "stderr" goes to this file.
+				This limited version of "stream redirection" works for
+					ouput streams "stdout" and "stderr" only.
+					examples:
+					2>/DEV/CAS01
+					3>/DEV/LPR
+COPY <TEXTFILE/ASC 3>2		copy disk file "TEXTFILE/ASC" to the screen. Any output
+					from "stderr" gets merged with output from
+					"stdout" (ie, to the screen).
+				This limited version of "stream redirection" works for
+					ouput streams "stdout" and "stderr" only.
+					examples:
+					3>2
+					2>3
+
+SH/BAS interprets a command line as follows
+A. Individual items, or "tokens" are considered as separated by white space. So in the
+	example
+		COPY <INFILE >OUTFILE -OPTION1
+	there are 4 tokens: "COPY", "<INFILE", ">OUTFILE", and "-OPTION1".
+1. If the token is input or output redirection (indicated by the presence of "<" as the
+	 first character, or ">" as the first or second character, it is parsed, and the
+	appropriate disk filename or device indicator is prepared to be written on its own
+	line in CMDLINE/SH. (See notes on "CMDLINE/SH", below.) These tokens are not added
+	to the copy of the command line which will be written as line 1 of CMDLINE/SH.
+2. The first token which does not match test 1, above (not I/O redirection) is considered
+	the command name ("COPY" in this example). In that case, a special copy of it is
+	tested to see if it contains the "/BAS" extension and, if not, that is inserted.
+	The special copy is saved as the name of the program that SH/BAS will eventually
+	RUN.
+3. Any token that does not match test 1 will be copied to the command line (in this
+	example, the final command line will look like this:
+		COPY -OPTION1
+
+Cross-Reference to Ratfor Procedure Names in "Software Tools"
+=============================================================
+
+Ratfor Item	Skeleton Entry		Notes
+-----------	--------------		-----
+
+EOF		NOT VR%(0)		Ratfor (and C) return a symbolic constant when 
+		or			End-of-file is reached. SKELETON does not return
+		VR%(0) = 0		a "magic value", but instead reports a FAIL result
+					in VR%(0) for those procedures [like getc() and 
+					getchar()] that read a file.
+					(ST p9)		
+							
+getarg( n, array, maxsize)		
+		AV$(n)			The SKELETON version is an analog for C's "argv[n]".
+					{The total # of command-line arguments, known as
+					"argc" in C, can be read by FN AC%(0).}
+					(ST p38)	
+
+getc(c)		"getchar( VR$(0))":	If EOF, getchar() does not return a symbolic constant
+		GOSUB 2100		in VR$(0). Instead, VR%(0) will return FAIL (0) rather 
+					than the usual SUCCEED (-1).
+					(ST p7, 8, 31) 
+
+max( x, y)	FN MX%( X%, Y%)		DEF FN defined in line 64010. Returns the integer
+					maximum of integer arguments X% and Y%.
+					(ST p40)
+
+mod( x, y)	FN MD!( X!, Y!)		DEF FN defined in line 64011. Returns the single-
+					precision modulus (remainder) of X! / Y!.
+					(ST p21)
+
+NEWLINE					Suggested: create a string,
+					NL$= CHR$( 13)
+					at the beginning of your program.
+					(ST p12)
+						
+call putc( c)	"putchar( VA$(0))":	Store argument to putchar() in VA$(0).
+		GOSUB 2300		This may be a single character or a string.
+					(ST p7, 8, 32)
+
+call putdec( n, w)
+		"putDec( VA!(0),	The number to be printed, "n", is stored in VA!(0).
+			VA%(1))":	The field width in which it is right-justfied, "w",
+		GOSUB 60350		is an integer stored in VA%(1).
+					(ST p12)
+
+
+Contents of "CMDLINE/SH"
+========================
+
+CMDLINE/SH is a sequential file created by SH/BAS and read by a program based on
+SKELETON. Its contents are:
+Line		Contents
+1		command line
+2		stdin	filename, device indicator, or ""
+3		stdout	filename, device indicator, stream indicator, or ""
+4		stderr	filename, device indicator, stream indicator, or ""

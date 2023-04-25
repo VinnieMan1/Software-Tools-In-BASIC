@@ -1,0 +1,998 @@
+Skeleton Usage Guide
+**************************
+
+Definitions & Abbreviations
+===========================
+byte-stream:	see "stream-type"
+CMDLINE/SH	a file which contains:
+		Line	contents
+		1	command line invoking this program
+		2	stdin filename (or	"" indicating default device; or
+						-n indicating device ID#)
+		3	stdout filename (or	"" indicating default device; or
+						-n indicating device ID#)
+		4	stderr filename (or	"" indicating default device; or
+						-n indicating device ID#)
+		5	either	a "0" indicating to "sh/bas" that its input was
+					a single line from the keyboard (and so
+					"sh/bas" should fetch a new command line
+					from the keyboard); or
+				n, a SP number indicating which line in the following
+					text "sh/bas" should execute after this
+					program terminates.
+		[optionally,
+		6..nn	a list of command lines to be executed by "sh/bas" after
+				this program.]
+DCB		disk control block (TRSDOS 2.3 Manual p6-6)
+device ID#	0:	null / bit bucket
+		-1:	keyboard
+		-2:	screen
+		-3:	printer
+		[PLANNED:
+		-4:	tape #1		(PRINT or INPUT # -1)
+		-5:	tape #2		(PRINT or INPUT # -2)
+		-6:	RS-232]
+FD, FD#		"File Descriptor"
+File Descriptor	an integer from 1..15, which identifies an open file.
+		Often FD #s 1..3 are assigned to std files.
+"Prerequisite"	must be done before a routine is first used.
+std		"Standard" I/O handle (files or devices):
+			handle:		stream:		SY%(..,0)	default device
+			stdin		1		1		-1
+			stdout		2		2		-2
+			stderr		3		3		-2
+stream		a number used to refer to std devices/files.
+			As such, a subscript into SY%(stream,0)
+			which will contain either
+				a) the FD# or device ID# for that std I/O handle; or
+				b) a code (a value over 99) which indicates stream
+					redirection.
+stream-type	ie, "byte-stream" or "text-stream" I/O
+		byte-stream input:	reads every byte, regardless of ASCII value,
+					until end-of-file, marked as:
+					-a keystroke matching SY$(5,0) {by default,
+						a [Shift][Up Arrow]} for keyboard input;
+					-having read the last character in a disk file
+		text-stream input:	reads every "text" byte: a character that can
+					be typed into a LINEINPUT prompt. A "newline"
+					character is appended to this and will also be
+					returned as a character before the next line is
+					read. End-of file is marked as:
+					-a line containing only the character matching
+						SY$(6,0) {by default, a single period
+						"."} for keyboard input;
+					-having read the last character in a disk file
+		byte-stream, text-stream output:
+					Each byte is output regardless of its value,
+					conceptually one character at a time.
+text-stream:	see "stream-type"
+
+
+I/O
+===
+
+User Routines
++++++++++++
+
+getc( VA%(0))		Read 1 char/byte from device/file# specified by VA%(0)
+-----------------
+Prerequisite:	If reading from a disk file, it must have first been fOpen()ed.
+Usage:		GOSUB 2000
+Constraints:	VA%(0)	Device (-1..-3) or FD# to read from
+		SY%(4,0)	-1:	byte-stream I/O
+				0:	text-stream I/O
+Result:		VR%(0)	succeed/fail (-1/0).	Fail on EOF
+Returns:	VR$(0)	one char/byte
+Typical usage:	100	VA%(0)= -1 ' Read from keyboard
+		200	GOSUB 2000
+			IF VR%(0) THEN
+				PRINT VR$(0);
+			ELSE
+				RETURN
+
+getchar()		Read 1 char/byte from stdin
+---------
+Usage:		GOSUB 2100
+Constraints:	SY%(4,0)	-1:	byte-stream I/O
+				0:	text-stream I/O
+Result:		VR%(0)	succeed/fail (-1/0).	Fail on EOF
+Returns:	VR$(0)	one char/byte
+Typical usage:	200	GOSUB 2100
+			IF VR%(0) THEN
+				PRINT VR$(0);
+			ELSE
+				RETURN
+
+putNum( FD%,		Print Num! in min Width% field on file/dev FD%
+	Num!,
+	Width%)
+---------------
+Usage:		GOSUB 60300
+Inputs:		VA%(0)	FD#
+		VA%(1)	Width%
+		VA!(0)	Num!
+Typical Usage:	100	VA%(0)= -2 ' Screen output
+			VA%(1)= 10 ' Field width"
+			VA!(0)= 3.14
+		200	GOSUB 60300 ' PutNum()
+Note:		Does not return any error status
+
+putDec( Num!,		Print Num! in min Width% field on stdout
+	Width%)
+---------------
+Usage:		GOSUB 60350
+Inputs:		VA%(1)	Width%
+		VA!(0)	Num!
+Typical Usage:	100	VA%(1)= 10 ' Field width"
+			VA!(0)= 6.28
+		200	GOSUB 60350 ' PutDec()
+Note:		Does not return any error status
+
+
+puts( VA$(0), VA%(0))	Print string or char in VA$(0) to dev/file# specified by VA%(0)
+---------------------
+Usage:		GOSUB 60100
+Quick Link:	GOSUB 2200
+Inputs:		VA$(0)	String or char to be output
+		VA%(0)	Device (-1..-3) or FD# to send to
+Typical Usage:	100	VA$(0)= "HELLO, WORLD"
+			VA%(0)= -2 ' Screen
+		200	GOSUB 60100
+Note:		An incorrect dev # (0..-1, -4..) will serve as a "bit bucket". Output will disappear.
+
+putchar( VA$(0))	Print string or char in VA$(0) to stdout
+----------------
+Usage:		GOSUB 60200
+Quick Link:	GOSUB 2300
+Inputs:		VA$(0)	String or char to be output
+Typical Usage:	100	VA$(0)= "HELLO, WORLD"
+		200	GOSUB 60200
+
+fOpen( VA$(0),		Open file with Name in VA$(0),
+	opt VA$(1),		Mode described as a char in set 'IORGPA' in VA$(1)
+	opt VA%(1))			or '123456' in VA%(1)
+	opt VA%(0))		Buffer # in VA%(0)
+-------------------			or system-assigned if VA%(0) is 0			
+Usage:		GOSUB 60500
+Inputs		VA$(0)		Filename
+		VA$(1) **or**	Mode,	1 of 'IORGPA' **or**
+		VA%(1)			1 or1..6
+		VA%(0)		Buffer # 	1..15, **or**
+					0 for system-assigned buffer #
+Constraints:	Maximum # files that can be OPENed reported by FN DN%( 0)
+Results:	VR%(0)		Success/Failure (-1/0)
+Returns:	VR%(1)		assigned FD#
+Notes:		1. File may be opened in one of the following modes:
+			in VA$(1)	or in VA%(1)	Mode
+			I		1		Input
+			O		2		Output
+			R		3		Random
+			G		4		getc()
+			P		5		putc()
+			A		6		Append	[not currently implemented]
+		2. A disk buffer number can be indicated in VA%(0).
+			If that is left with a value of 0, fOpen() will assign
+			a buffer number.
+		3. The buffer number will not be allowed to be greater than the number
+			given to the FILES?_ prompt when BASIC was booted.
+		4. The final assigned buffer number is returned in VR%(1)
+Typical Usage:	100	VA$(0)= "MYFILE/DAT:1"
+			VA$(1)= "O"
+			VA%(0)= 0 ' Have fOpen() assign FD#
+		200	GOSUB 60500
+		300	IF VR%(0) THEN
+				FL%= VR%(1) '
+				Save Buffer # in FL%
+			ELSE
+				RETURN '
+				File Error
+
+
+Base Support Routines
++++++++++++++++++++++
+
+DefaultFileParams()	Set up default file parameters when opening in "G" mode
+-------------------
+Usage:		GOSUB 60700
+Used in:	fOpen()
+
+ResetDiskBuffer()	Resets Disk Input Buffer for "G" mode
+-----------------
+Usage:		GOSUB 60810
+Used in:	DefaultFileParams()
+
+ResetKeyboard()		Reset Keyboard Input Buffer after newline in Getchar()
+---------------
+Usage:		GOSUB60800
+Used in:	Initialization
+
+File System Base Support DEF Functions
+++++++++++++++++++++++++++++++++++++++
+
+Stdio Support
+.............
+
+ST%( SL%)		StreamTranslate( stream%)
+---------		Translate slot%. If stream% is-
+			-1..-5:		default std devices
+					-1	keyboard
+					-2	screen
+					-3	printer
+					-4	cassette 1
+					-5	cassette 2
+			1..15:		File Descriptor FD%, with details accessed in
+					SY%(FD%,1)..SY%(FD%,2)
+					SY!(FD%,0)..SY!(FD%,2)
+					SY$(FD%,1)
+			100..300:	stream redirection. stream% will be redirected as
+					SY%(INT( SL% / 100), 0)
+Defined in:	64040
+Used in:	2100	GetChar()
+		60200	Putc()
+		60350	PutDec()
+		65520	PutErr()
+
+File Access Support
+...................
+
+DF%( m%)		IsValidMode( mode%)
+--------		T if OPEN mode% is in the set "IORGPA"
+				(Input/Output/Random/Get/Put/Append)
+Defined in:	64038
+Used in:	60520	' OPEN routines
+		60525
+		60530
+
+DN%( 0)			MaxOpenFiles()
+-------			The value ENTERed to the FILES? prompt when initiating BASIC
+				(default value: 3)
+Defined in:	64034
+Used in:	60505	' OPEN routine
+Note:		only for Model I TRSDOS 2.3
+
+File Content Support
+....................
+
+DX!( F%)		TotalBytes( file%)
+--------		Total number of bytes/chars in file% (ie, EOF is when
+				byte # FN DX!( F%) has been read).
+Defined in:	64036
+Used in:	60700	' getc() mode OPEN routine
+Uses:		FN DQ%( F%)	' offset to last char/byte in file%
+		FN DE!( F%)	' last record # in file%
+
+DE!( F%)		EndRec( file%)
+--------		Returns last record number for file%, as a single-precision #.
+Defined in:	64036
+Used in:	FN DX!( F%)
+Uses:		FN DE%( F%)
+		FN WP!()
+
+DQ%( F%)		CharOffset( file%)
+--------		Translates PEEK( FN DL%( file%)) so that a return value of
+			0 becomes 256. Returns exact # of bytes in last record of file%.
+Defined in:	64036
+Used in:	FN DX!( F%)
+Uses:		FN DL%( F%)
+
+
+DCB Address Support
+...................
+
+DE%( F%)		EndRec( file%)
+--------		address of "ERN (ending record no. - last in file - lsb/msb)"
+				(TRSDOS p6-6) in DCB for file handle F%
+Defined in:	64032
+Used in:	FN DE!( F%)
+Uses:		FN DB%
+
+DL%( F%)		EndByteLastRec( file%)
+--------		address of "EOF offset of last delimiter in last physical record"
+				(TRSDOS p6-6) in DCB for file handle F%
+Defined in:	64032
+Used in:	FN DQ%( F%)
+Uses:		FN DB%( F%)
+Note:		if the value of FN DL%( F%) is 0, it actually means byte/char #256.
+		This is translated as such in FN DQ%().
+
+
+DB%( F%)		DCBbase( file%) --
+--------		Returns base address of DCB (Disk Control Block) for
+				file handle F%
+Defined in:	64032
+Used in:	FN DC%( F%)
+		FN DE%( F%)
+		FN DL%( F%)
+Uses:		FN D0%( 0)
+		FN D1%( 0)
+
+D0%( 0)			Returns a constant for the base (#1) DCB address in TRS-DOS 2.3
+-------			
+Defined in:	64030
+Used in:	FN DB%( F%)
+Note:		alternative addresses for FN D0%() and FN D1%() are provided in
+			line 64031, following their definition:
+			FN(	         D0)     D1)
+			TRSDOS 1.3 M3   26182   360
+			NEWDOS 2.1 M1   25941   290
+			NEWDOS/80  M1   26315   301
+			LDOS 5.0.3 M1   27205   546
+
+D1%( 0)			Returns a constant for the size of the DCB buffer in TRS-DOS 2.3
+-------
+Defined in:	64030
+Used in:	FN DB%( F%)
+Note:		see alternative buffer sizes in note under FN D0%( 0), above.
+
+DC%( F%)		EndByteCurrent( file%)
+--------		address of "Offset to delimiter at end of current record"
+				(TRSDOS p6-6) in DCB for file handle F%
+Defined in:	64032
+Used in:	
+Uses:		FN DB%( F%)
+Note:		Not used.
+
+Device Constants
+................
+
+C1%( 0)			Cassette #1
+-------			returns -4
+Defined in:	64050
+
+C2%( 0)			Cassette #2
+-------			returns -5
+Defined in:	64050
+
+KY%( 0)			Keyboard
+-------			returns -1
+Defined in:
+Used in:	64050
+
+PR%( 0)			Printer
+-------			returns -3
+Defined in:
+Used in:	64050
+
+RS%( 0)			RS-232
+-------			returns -6
+Defined in:	64050
+
+SC%( 0)			Screen
+-------			returns -2
+Defined in:
+Used in:	64050
+
+
+String Scanning
+===============
+
+User Routines
++++++++++++
+
+NextToken( VA$(0))	"Token" consisting of string of non-whitespace chars returned in VR$(0)
+------------------
+Prerequisite:	1)	string to be scanned -> VA$(0).
+		2 )	GOSUB 5160
+			' IF NOT SY%(11,0) THEN
+				RETURN
+Usage:		GOSUB 5600
+Input(s):	VA$(0)	String to be scanned / SR$
+Constraints:	typically set by Prerequisite
+		Current Cursor position, CC% [SY%(13,0)]
+		UpTo position, UT% [SY%(14,0)]
+Assumptions:	a) Tokens separated by whitespace or start- or end-of-string
+			[stored in VA$(1) by SkipWS(), called by GetToken()]
+		b) Error if VA$(0) is empty string
+Results:	VR%(1) [SY%(11,0)]	"More To Scan" / MR%
+		VR%(0) [SY%(12,0)]	"Succeed/Fail" / SC%
+Returns:	VR$(0)	If SC% then
+			Token
+			else
+				"" ' empty string
+Side Effects:	Updates CC% "Current Cursor" in SY%(13,0)
+Sequel:		if more tokens desired, test MR% and repeat Usage.
+Typical Usage:	100	GOSUB 5160' InitScanString()
+			' Prerequisite
+			IF NOT SY%(11,0) THEN
+				RETURN
+				' Trap empty VA$(0)
+		200	GOSUB 5600
+			IF NOT SY%(12,0) THEN
+				RETURN
+				' No "success": no more tokens in VA$(0)
+			PRINT "TOKEN: "; VR$(0)
+			IF SY%(11,0) THEN
+				GOTO 200
+				' Possibly more to be scanned
+			RETURN
+
+GetToken()	"Token" consisting of string of chars not matching set in VA$(1),
+----------		returned in VR$(0)
+Prerequisite:	1)	string to be scanned -> VA$(0).
+		2 )	GOSUB 5160
+			' IF NOT SY%(11,0) THEN
+				RETURN
+Usage:		GOSUB 5610
+Input(s):	VA$(0)	String to be scanned / SR$
+		VA$(1)	Set of characters as separator. Scan up to an occurence of these
+Constraints:	typically set by Prerequisite
+		Current Cursor position, CC% [SY%(13,0)]
+		UpTo position, UT% [SY%(14,0)]
+Assumptions:	a) Tokens separated by VA$(1) or start- or end-of-string
+		b) Error if VA$(0) is empty string
+Results:	VR%(1) [SY%(11,0)]	"More To Scan" / MR%
+		VR%(0) [SY%(12,0)]	"Succeed/Fail" / SC%
+Returns:	VR$(0)	If SC% then
+			Token
+			else
+				"" ' empty string
+Side Effects:	Updates CC% "Current Cursor" in SY%(13,0)
+Sequel:		if more tokens desired, test MR% and repeat Usage.
+Typical Usage:	100	GOSUB 5160' InitScanString()
+			' Prerequisite
+			IF NOT SY%(11,0) THEN
+				RETURN
+				' Trap empty VA$(0)
+		200	GOSUB 5610
+			IF NOT SY%(12,0) THEN
+				RETURN
+				' No "success": no more tokens in VA$(0)
+			PRINT "TOKEN: "; VR$(0)
+			IF SY%(11,0) THEN
+				GOTO 200
+				' Possibly more to be scanned
+			RETURN
+
+ScanArgv( VA$(0))	Scan Argv[] for occurence of member in VA$(0)
+-----------------	Return S/F in VR%(0), subscript of matching Argv[] in VR%(1)
+Usage:		GOSUB 64600
+Input(s):	VA$(0)	Set of strings to match (ie, "-h -H -? -usage --H --?")
+Constraints:	SY%(0,0) / argc. If 0, no matching done.
+Returns:	VR%(0)	S/F
+		VR%(1)	If VR%(0) is S, subscript of Argv[] where match occurred.
+Typical Usage:	' TYPICALLY USED IN SYSTEM INITIALIZATION
+		100	VA$(0)= "-H --H -? --? -USAGE --USAGE"
+		200	GOSUB 64600
+			IF VR%(0) THEN
+				GOSUB xxxxx:
+				GOTO 59990 '
+				Print Usage on stderr;
+				GOTO Exit
+
+
+SkipWS( VA$(0))		Move scanning cursor past any whitespace.
+---------------
+Prerequisite:	string to be scanned -> VA$(0).
+		GOSUB 5160
+		' IF NOT SY%(11,0) THEN
+			RETURN
+Usage:		GOSUB 5500
+Input(s):		VA$(0)	String to be scanned / SR$
+Constraints:	typically set by Prerequisite
+		Current Cursor position, CC% [SY%(13,0)]
+		UpTo position, UT% [SY%(14,0)]
+Assumptions:	Error if VA$(0) is empty string
+Results:		VR%(1) [SY%(11,0)]	"More To Scan" / MR% 
+Returns:		VR%(2) [SY%(15,0)]	# of WS chars skipped / SL%
+Side Effects:	Updates CC% "Current Cursor" in SY%(13,0)
+Typical Usage:	100	GOSUB 5160' InitScanString()
+			' Prerequisite
+			IF NOT SY%(11,0) THEN
+				RETURN
+				' Trap empty VA$(0)
+		200	GOSUB 5500
+			' Current cursor now adjusted past any WS
+			IF NOT SY%(12,0) THEN
+				RETURN
+				' Reached end-of-string
+
+Base Routines
+++++++++++++
+
+SkipWhile( VA$(1),	Move scanning cursor past any character found in set VA$(1)
+	VA$(0))
+------------------
+Usage		GOSUB 5020
+Inputs:		VA$(0)	String to be scanned / SR$
+		VA$(1)	Character Set / CS$
+Constraints:	VA%(0)	CurrentCursor / CC%
+		VA%(1)	UpTo / UT%
+Assumptions:	Error if VA$(0) is empty string
+Results:	VR%(1)	"More To Scan" / MR% 
+Returns:	VR%(2)	# of chars skipped / SL%
+Side Effects:	Updates CC% "Current Cursor" in VA%(0) only
+Typical Usage:	100	IF UsingScanStateVariables THEN
+				GOSUB 5120 ' RecoverVAsFromSSVs()
+			ELSE
+				VA%(0)= CurrentCursor%:
+				VA%(1)= UpToPosition%
+		200	GOSUB 5020
+		300	IF UsingScanStateVariables THEN
+				GOSUB 5100 ' SaveCurrentArgsAndReturns()
+			' Returns	VR%(1)	"More" to scan / MR%
+				VR%(2)	SelectionLength / SL%
+
+			' See code for SkipWS() for an example
+
+SkipUntil( VA$(1),	Move scanning cursor until character found in set VA$(1)
+	VA$(0))		ie, "look for next occurence" of char in set
+------------------
+Usage:		GOSUB 5030
+Inputs:		VA$(0)	String to be scanned / SR$
+		VA$(1)	Character Set / CS$
+Constraints:	VA%(0)	CurrentCursor / CC%
+		VA%(1)	UpTo / UT%
+Assumptions:	Error if VA$(0) is empty string
+Results:	VR%(1)	"More To Scan" / MR% 
+Returns:	VR%(2)	# of chars matched / SL%
+Side Effects:	Updates CC% "Current Cursor" in VA%(0) only
+Typical Usage:	100	IF UsingScanStateVariables THEN
+				GOSUB 5120 ' RecoverVAsFromSSVs()
+			ELSE
+				VA%(0)= CurrentCursor%:
+				VA%(1)= UpToPosition%
+		200	GOSUB 5030
+		300	IF UsingScanStateVariables THEN
+				GOSUB 5100 ' SaveCurrentArgsAndReturns()
+			' Returns	VR%(1)	"More" to scan / MR%
+				VR%(2)	SelectionLength / SL%
+
+GatherWhile( VA$(1),	Returns length of string whose contents match set VA$(1)
+	VA$(0))
+--------------------
+Usage:		GOSUB 5040
+Inputs:		VA$(0)	String to be scanned / SR$
+		VA$(1)	Character Set / CS$
+Constraints:	VA%(0)	CurrentCursor / CC%
+		VA%(1)	UpTo / UT%
+Assumptions:	Error if VA$(0) is empty string
+Results:	VR%(1)	"More To Scan" / MR% 
+Returns:	VR%(2)	# of chars matched / SL%
+Typical Usage:	100	IF UsingScanStateVariables THEN
+				GOSUB 5120 ' RecoverVAsFromSSVs()
+			ELSE
+				VA%(0)= CurrentCursor%:
+				VA%(1)= UpToPosition%
+		200	GOSUB 5040
+		300	IF UsingScanStateVariables THEN
+				GOSUB 5100 ' SaveCurrentArgsAndReturns()
+			' Returns	VR%(1)	"More" to scan / MR%
+				VR%(2)	SelectionLength / SL%
+
+GatherUntil( VA$(1),	Returns length of string whose contents are not found in set VA$(1)
+	VA$(0))
+--------------------
+Usage:		GOSUB 5050
+Inputs:		VA$(0)	String to be scanned / SR$
+		VA$(1)	Character Set / CS$
+Constraints:	VA%(0)	CurrentCursor / CC%
+		VA%(1)	UpTo / UT%
+Assumptions:	Error if VA$(0) is empty string
+Results:	VR%(1)	"More To Scan" / MR% 
+Returns:	VR%(2)	# of chars matched / SL%
+Typical Usage:	100	IF UsingScanStateVariables THEN
+				GOSUB 5120 ' RecoverVAsFromSSVs()
+			ELSE
+				VA%(0)= CurrentCursor%:
+				VA%(1)= UpToPosition%
+		200	GOSUB 5050
+		300	IF UsingScanStateVariables THEN
+				GOSUB 5100 ' SaveCurrentArgsAndReturns()
+			' Returns	VR%(1)	"More" to scan / MR%
+				VR%(2)	SelectionLength / SL%
+
+ReturnGathered&UpdateCurrentCursor&SaveSSVs()	Combines ReturnGathered(),
+---------------------------------------------	UpdateCursor(), and
+						SaveCurrentArgs&Returns()
+Usage:		GOSUB 5410
+Prerequisite:	GatherWhile() or
+		GatherUntil()
+Constraints:	VA%(0)	CurrentCursor / CC%
+		VR%(2)	# of chars matched
+		VA$(0)	current string being scanned
+Assumptions:	Error if VA$(0) is empty string
+Returns:	VR$(0)	"Token", ie, gathered substring
+Note:		See	ReturnGathered&UpdateCurrentCursor(),
+			ReturnGathered(), below.
+Typical Usage	100	GOSUB 5150 ' See above, GatherUntil()
+		200	GOSUB 5410 ' return gathered substring in VR$(0)
+
+ReturnGathered&UpdateCurrentCursor()	Combines ReturnGathered() and UpdateCursor()
+------------------------------------
+Usage:		GOSUB 5402
+Prerequisite:	GatherWhile() or
+		GatherUntil()
+Constraints:	VA%(0)	CurrentCursor / CC%
+		VR%(2)	# of chars matched
+		VA$(0)	current string being scanned
+Assumptions:	Error if VA$(0) is empty string
+Returns:	VR$(0)	"Token", ie, gathered substring
+Note:		See	ReturnGathered(), below		
+Typical Usage	100	GOSUB 5150 ' See above, GatherUntil()
+		200	GOSUB 5402 ' return gathered substring in VR$(0)
+
+ReturnGathered()	After GatherWhile() or GatherUntil(), return selected substring
+----------------	in VR$(0)
+Usage:		GOSUB 5400
+Prerequisite:	GatherWhile() or
+		GatherUntil()
+Constraints:	VA%(0)	CurrentCursor / CC%
+		VR%(2)	# of chars matched
+		VA$(0)	current string being scanned
+Assumptions:	Error if VA$(0) is empty string
+Returns:	VR$(0)	"Token", ie, gathered substring
+Typical Usage	100	GOSUB 5150 ' See above, GatherUntil()
+		200	GOSUB 5400 ' return gathered substring in VR$(0)
+
+
+BasicScan(VA$(0),	Basic Scanning Routine used by above. Returns # of characters
+	VA$(1),			in VR$(0) from CC% satisfying
+	NF%)				a) "match" / "don't match" NF%
+------------------			b) character set VA$(1)
+Usage:		GOSUB 5000
+Inputs:		VA$(0)	String to be scanned / SR$
+		VA$(1)	Character Set / CS$
+		VA%(2)	Do "not" match flag / NF%
+Constraints:	VA%(0)	CurrentCursor / CC%
+		VA%(1)	UpTo / UT%
+Assumptions:	Error if VA$(0) is empty string
+Results:	VR%(1)	"More To Scan" / MR% 
+Returns:	VR%(2)	# of chars matched / SL%
+Typical Usage:	200	GOSUB 5000
+
+Mandatory Support Routines
++++++++++++++++++++++++
+
+InitScanString( VA$(0))	Initializes SSVs (Scan State Variables) per VA$(0)
+----------------------------
+Usage:		assign new string to be scanned to VA$(0)
+		GOSUB 5160
+		' Required before initially scanning new string stored in VA$(0)
+Input(s):	VA$(0)	String to be scanned / SR$
+Results:	VR%(1)	"More To Scan" / MR% 
+Typical Usage:	100	INPUT "NEW STRING TO SCAN"; NU$
+			VA$(0)= NU$ '
+		300	GOSUB 5160
+			' InitScanString()
+			' Example use: GetToken()
+		500	GOSUB 5600
+			IF SY%(12,0) THEN
+				TK$= VR$(0)
+				' Obtain first token in VA$(0)
+
+Base Support Routines
++++++++++++++++++++++
+
+IsThereMoreToScan( 	Reports in MR% / SY%(11,0) if more to scan in VA$(0)
+	VA$(0))
+-------------------
+Usage:		GOSUB 5130
+Input(s):	VA$(0)		String to be scanned / SR$
+Results:	SY%(11,0)	T (-1) if more to be scanned
+Typical Usage:	100	GOSUB 5130
+		200	IF SY%(11,0) THEN '
+				GatherUntil() ' for example
+Used in:	SkipWhile() / 5020
+		SkipUntil()  / 5030
+
+UpdateCursor()		Moves Current Cursor CC% in SY%(13,0) to new position after scan
+--------------			[ie, CC%= CC% + SelectionLength SL% / SY%(15,0)]
+Usage:		GOSUB 5140
+Notes:		There is a matching routine, GOSUB 5142, used in SkipWhile() and
+			SkipUntil(), which updates CC% in VA%(0) instead of SY%(13,0)
+			[ie, VA%(0)= VA%(0) + VR%(2)]
+		This routine typically used after Gather()ing a selection.
+Used in:	GetToken() / 5600
+			5142 is used in
+				SkipWhile() / 5020
+				SkipUnitl() / 5030
+Typical Usage:	100	' Sample Code whitch Gather()s a token
+			a) Recover Args from SSVs
+			GOSUB 5120
+		200	GOSUB 5050
+			' GatherWhile()
+		300	GOSUB 5100 '
+			b) Save Current Args & Returns
+		400	IF SY%(12,0) THEN
+				TK$= MID$( VA$(0), SY%(13,0), SY%(15,0))
+				' Success:: "token" is selection of VA$(0)
+					at CC% / SY%(13,0)
+					for SL% / SY%(15,0) characters
+		500	' ***
+			**** Example here:
+			****
+			GOSUB 5140
+			' CC% / SY%(13,0) += SL% / SY%(15,0)
+
+RecoverArgsFromSSVs()	Copy	CC%	SY%(13,0) to	VA%(0)
+---------------------		UT%	SY%(14,0) to 	VA%(1)
+Usage:		GOSUB 5120
+Used in:	InitScanString() /	5160
+		SkipWS() / 		5500
+		GetToken() / 		5600
+
+SaveCurrentArgsAndReturns()	Copy
+---------------------------	CC%	VA%(0) to	SY%(13,0)
+				UT%	VA%(1) to	SY%(14,0)
+				SC%	VR%(0) to	SY%(12,0)
+				MR%	VR%(1) to	SY%(11,0)
+				SL%	VR%(2) to	SY%(15,0)
+Usage:		GOSUB 5100
+Used in:	SkipWS() /		5500
+		GetToken() /		5600
+		InitScheduler() /	65050
+
+SaveSSVs()		Using SY%(0,3) as "SP", save
+----------			SY%(11,0) [MR%] to	SY%((SP-1)*5+1,3)
+				SY%(12,0) [SC%] to	SY%((SP-1)*5+2,3)
+				SY%(13,0) [CC%] to	SY%((SP-1)*5+3,3)
+				SY%(14,0) [UT%] to	SY%((SP-1)*5+4,3)
+				SY%(15,0) [SL%] to	SY%((SP-1)*5+5,3)
+				VA$(0)	[SR$]	to	SY$(SP,2)
+				VA$(1)	[CS$]	to	SY$(SP+3,2)
+Usage:		GOSUB 5200
+Typical Usage:	100	' Previous scanning
+		200	GOSUB 5200
+		300	VA$(0)= "NEW STRING"
+			VA$(1)= "NEW CHARACTER SET"
+			GOSUB 5160
+			' Initialize SSVs
+		400	' Do some scanning here
+		500	GOSUB 5300 ' RestoreSSVs(), below
+			' Continue with scanning previous VA$(0)
+Note:		Only saves 3 sets of SSVs. Will not attempt to save more.
+
+RestoreSSVs()		Using SY%(0,3) as "SP", restore
+-------------			SY%(11,0) [MR%] from	SY%((SP-1)*5+1,3)
+				SY%(12,0) [SC%] from	SY%((SP-1)*5+2,3)
+				SY%(13,0) [CC%] from	SY%((SP-1)*5+3,3)
+				SY%(14,0) [UT%] from	SY%((SP-1)*5+4,3)
+				SY%(15,0) [SL%] from	SY%((SP-1)*5+5,3)
+				VA$(0)	[SR$]	from	SY$(SP,2)
+				VA$(1)	[CS$]	from	SY$(SP+3,2)
+Usage:		GOSUB 5250
+Typical Usage:	' See SaveSSVs(), above
+
+String Scanning DEF FNs
++++++++++++++++++++++++
+
+AL$( 0)			Alphabetic()
+-------			Returns alpha character set
+Defined in:	64006
+Uses:		LC$(),
+		UC$()
+Used in:	AN$()
+
+AN$( 0)			AlphaNumeric()
+-------			Returns alphanumeric character set
+Defined in:	64006
+Uses:		AL$(),
+		NM$()
+
+
+LC$( 0)			Lowercase()
+-------			Returns lowercase character set
+Defined in:	64006
+Used in:	AL$()
+
+NM$( 0)			Numeric()
+-------			Returns numeric character set
+Defined in:	64006
+Used in:	AN$()
+
+UC$( 0)			Uppercase()
+-------			Returns uppercase character set
+Defined in:	64006
+Used in:	AN$()
+
+US$()			User-defined character set
+-----			anything in SY$(14,0)
+Defined in:	64006
+
+WS$( 0)			WhiteSpace()
+-------			Returns whitespace character set
+Defined in:	64006
+	
+
+String Formatting
+=================
+
+Fmt_Num( Width%,	Right-align Num! in field of Width% spaces
+	Num!)
+----------------
+Usage:		GOSUB 5800
+Inputs:		VA%(1)		Field width
+		VA!(0)		Num (single-precision fp)
+Returns:	VR$(0)		Formatted number as a string
+Used in:	putNum(),
+		putDec()
+Typical Usage:	100	VA!(0)= 3.14
+			VA%(1)= 10
+		200	GOSUB 5800
+		300	PRINT "PI TO 2 PLACES IS"; VR$(0)
+Note:		Returns no error status
+
+String Formatting DEF FNs
++++++++++++++++++++++++++
+
+NP$( S$)		RemoveLeadingBlankFromNum( S$)
+--------			S$ is a number converted using STR$(). If it is positive,
+				it will begin with a leading blank. FN NP$()
+				removes that blank for formatting purposes.
+Defined in:	64018
+Used in:	5800 /	FMT-NUM
+
+TU%( C%)		ToUpperCase( char)
+--------		comverts all alpha char to uppercase. Returns all other
+				ASCII unchanged.
+Defined in:	64000
+Used in:	60525	OPEN routines
+Uses:		FN CL%()
+
+CL%( C%)		CharLowerCase?( char)
+--------		returns T if char is lowercase
+Defined in:	64000
+Used in:	FN TU%()
+
+
+Memory
+======
+
+Memory DEF FNs
+++++++++++++++
+
+Address Functions
+.................
+
+WP!( A%)		WordPeek( addr%)
+--------		Returns unsigned 16-bit value at addr%, addr%+1
+Defined in:	64016
+Used in:	FN DE!()
+Uses:		FN IS!()
+		FN SW%()
+
+HB%( W!)		HighByte( word!)
+--------		Returns high-order byte of 16-bit word! Works with
+			signed (BASIC) integers and "real" (unsigned) addresses.
+Defined in:	64014
+Used in:
+Uses:		FN IS!()
+Note:		see FN LB%()
+
+LB%( W!)		LowByte( word!)
+--------		Returns low-order byte of 16-bit word! Works with
+			signed (BASIC) integers and "real" (unsigned) addresses.
+Defined in:	64014
+Used in:
+Uses:		FN IS!()
+Note:		see FN HB%()
+
+IS!( I%)		SignedIntAddrToReal( int%)
+--------		Returns single-precision real address (ie, "65535") from
+			BASIC signed integer address (ie, "-1")
+Defined in:	64012
+Used in:	FN LB%()
+		FN HB%()
+
+SI%( A!)		RealAddrToSigned( addr!)
+--------		Converts single-precision real address (ie, "65535") to
+			BASIC signed integer address (ie, "-1")
+Defined in:	64012
+Used in:
+
+SW%( BL%, BH%)		SingleWord( byte_lo%, byte_hi%)
+--------------		Combines byte_lo% and byte_hi% into a BASIC signed integer
+Defined in:	64014
+Used in:	FN WP!()
+
+
+
+Usage & Error Reporting
+=======================
+
+Usage()			If user has specified any one of these options:
+-------			-H --H -? --? -USAGE --USAGE
+			print command usage help on stderr;
+			and if SY%(6,0) set (default), then exit
+Before using:	either
+		a) Edit DATA lines 64950..64996 to enter "usage" text.
+		b) Code new DATA lines *before* line 64950, ensuring that the
+			last DATA entry is a simple "."
+Usage:		GOSUB 64900
+Notes:		1. Called by default during initialization at line 65300
+			("Optional Packages"). Comment out that line if not wanted.
+		2. If SY%(6,0) is set (default), gracefully exits and resumes "SH/BAS".
+
+ExitGracefully()	Exits program "gracefully"; resumes "SH/BAS"
+----------------
+Usage:		GOTO 59990
+Note:		Used in Usage() at line 64940
+
+
+fOpenErrorReport()	Reports "ERROR", filename, "OPEN", FD#, and returns fail
+------------------
+Usage:		GOSUB 60950
+Input:		VA$(6)		String describing open error
+Assumes:	VA$(5)		"OPEN"
+		X9%		FD#
+Returns:	VR%(0)		0 -- failure/error occured
+Used in:	fOpen()
+
+PutErr( VA$(10))	Prints Error Msg in VA$(10), terminated with a CR, to
+----------------	stderr. If stderr not yet assigned, prints to screen.
+Usage:		GOSUB 65520
+Input:		VA$(10)		Error Message
+Result:		VR%(0)		0 -- failure/error occured
+Notes:		a) Prefixes "ERROR: "
+		b) appends a CR
+Typical Usage:	100	VA$(10)= "DISK FULL"
+		200	GOSUB 65520
+		300	IF NOT VR%(0) THEN
+				STOP
+Used in:	fOpenErrorReport()
+
+Usage & Error DEF FNs
++++++++++++++++++++++
+
+AC%( x)			Returns "argc", the index of the last entry in argv[] {AV$()}.
+-------
+Defined in:	64042
+
+E4%( E%)		Converts error code from BASIC's ERR function into
+--------		codes described in "TRS-DOS 2.3 pp7-77..7-78
+Defined in:	64020
+Used in:	65500	' "File Not Found" error handler 
+
+
+Math DEF FNs
+++++++++++++
+
+LG%( I%)		Logical( integer)
+--------		Returns:	0	if integer is 0
+					-1 	if any other signed integer value
+						(-32767 to 32768)
+Defined in:	64011
+Used in:	NOT USED
+Note:		Use with bitwise operators	NOT
+						OR
+						AND
+		as in:
+		100	A%= INTSTR( A$, "X")	' A% > 0 if A$ contains "X"
+			B%= LEN( A$)		' B% > 0 if A$ is not ""
+			IF FNLG%( A%) AND FNLG%( B%) THEN
+				PRINT "BOTH!"
+
+
+MD!( S!, D!)		Modulo( S, divisor)
+------------		Returns single-precision S mod D
+Defined in:	64011
+Used in:	FN LB%()
+
+MN%( A%, B%)		Minimum( a, b)
+------------		Returns the minimum of a, b
+Defined in:	64010
+Used in:	NOT USED
+
+MX%( A%, B%)		Maximum( a, b)
+------------		Returns the maximum of a, b
+Defined in:	64010
+Used in:	5800 / 	FMT-NUM
+
+XR%( A%, B%)		XOR( a, b)
+------------		Returns a XOR b
+Defined in:	64011
+Used in:	5000 /	BasicScan()
+
+
+Contents of "CMDLINE/SH"
+========================
+
+CMDLINE/SH is a sequential file created by SH/BAS and read by a program based on
+SKELETON. Its contents are:
+Line		Contents
+1		command line
+2		stdin	filename, device indicator, or ""
+3		stdout	filename, device indicator, stream indicator, or ""
+4		stderr	filename, device indicator, stream indicator, or ""
+
+

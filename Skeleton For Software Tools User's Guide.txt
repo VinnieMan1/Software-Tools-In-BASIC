@@ -411,7 +411,12 @@ getarg( n, array, maxsize)
 getc(c)		"getchar( VR$(0))":	If EOF, getchar() does not return a symbolic constant
 		GOSUB 2100		in VR$(0). Instead, VR%(0) will return FAIL (0) rather 
 					than the usual SUCCEED (-1).
-					(ST p7, 8, 31) 
+					[Note that in the Software Tools version of getc( c),
+					the character is not only returned as the "value" of
+					the getc() function, but also in its argument "c".
+					This can produce some confusion when reading either
+					the original ST in Ratfor, or "Software Tools in
+					Pascal".]					(ST p7, 8, 31) 
 
 max( x, y)	FN MX%( X%, Y%)		DEF FN defined in line 64010. Returns the integer
 					maximum of integer arguments X% and Y%.

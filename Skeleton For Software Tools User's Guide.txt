@@ -354,8 +354,8 @@ COPY </DEV/NUL >EMPTY/FIL:1	creates disk file EMPTY/FIL on drive 1 with a size
 					to it "disappears" (useful when only stderr
 					output is desired, and stdout output should
 					be suppressed).
-COPY <TEXTFILE/ASC 3>ERRFILE	copy disk file "TEXTFILE/ASC" to the disk file ERRFILE.
-					 Anything from "stderr" goes to this file.
+COPY <TEXTFILE/ASC 3>ERRFILE	copy disk file "TEXTFILE/ASC" to the screen.
+					 Anything from "stderr" goes to disk file ERRFILE.
 				This limited version of "stream redirection" works for
 					ouput streams "stdout" and "stderr" only.
 					examples:

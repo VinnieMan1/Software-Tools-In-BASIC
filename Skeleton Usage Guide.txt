@@ -984,6 +984,17 @@ Defined in:	64011
 Used in:	5000 /	BasicScan()
 
 
+File Record
+===========
+
+OpenType	SY%(n,1)	1..6 corresponds to IORGPA
+CharPos		SY%(n,2)	position of current character in buffer
+CurrentByte	SY!(n,0)	DCB+5 "Offset to delimiter at end of current record"
+RecordCount	SY!(n,1)
+CharCount	SY!(n,2)	aka FN DX!(n): total # of chars/bytes in file
+Buffer		SY$(n,1)	buffer for getc(); see CharPos, above
+
+
 Contents of "CMDLINE/SH"
 ========================
 

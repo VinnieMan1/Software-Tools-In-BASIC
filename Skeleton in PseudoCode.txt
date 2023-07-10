@@ -1,9 +1,21 @@
 Skeleton in PseudoCode
 ++++++++++++++++++++++
 
+Development Notes & TBD
+=======================
+
+1.	Needs an fclose(), particularly for
+		- disk files opened in Append mode
+		- cassette files opened for Write
+2.	putc() for cassette (text mode only)
+3.	getc() for cassette (text mode only)
+
+PseudoCode
+**********
 
 #define	FAIL			0
 #define SUCCESS			-1
+#define	LF			CHR$( 10)
 #define RECORD_END		256
 #define	KEYBOARD		FN KY%( 0)
 #define SCREEN			FN SC%( 0)
@@ -105,14 +117,14 @@ getc( file#) {			/* Read 1 char/byte from file #			2000	*/
 				}
 			else {
 				/* Text-Stream:	*/
-				Result= FAIL;	/* "VR%(0)=0			2060	*/
+				Result= FAIL;	/* "VR%(0)=0"			2060	*/
 				if (CharPos[file#] > LEN( Buffer$[0])) { /*	2062	*/
 				/* "IF NOT SY%(0,2) > LEN( SY$(0,1)) THEN 2070"		*/
 					LINE INPUT Buffer$[0];		/*	2064	*/
 					/* "LINE INPUT X9$"		*/
 					if (Buffer$[0] == KbdTextStreamEOF$) {
 					/* "IF X9$ = SY$(6,0) THEN"		2064	*/
-						Return$="";
+						Return$= "";
 						/* 'VR$(0)= ""'			2064	*/
 						ResetKeyboard();
 						/* "GOSUB 60800"		2064	*/
@@ -1050,3 +1062,214 @@ ManualErrorCode(error) {	/* Converts error code from BASIC's ERR function into
 	}
 
 
+/*
+	INITIALIZATION
+	++++++++++++++
+*/
+
+Initialization() {		/* Main Initialization Routine				*/
+	AllocationStringSpace( 500);					/*	65000	*/
+	/* "SS%= 500: CLEAR SS%"	Adjust SS% for larger string applications
+					Must be placed here as CLEAR empties the stack	*/
+	#define		15
+	/* "X9%= 15"								65004	*/
+	struct System {
+		int 	SystemI[SystemSize, 3];
+		float	SystemF[SystemSize, 2];
+		string	*System$[SystemSize, 2];
+		};
+	/* "DIM SY%(X9%,3), SY!(X9%,2), SY$(X9%,2)"				65006	*/
+	DebugLevel= 1;		/* test this level when debugging			*/
+	/* "D0= 1								65008	*/
+	Initialize();		/* main Initialization loop		65050 <-65020	*/
+	/* "GOSUB 65050"								*/
+	Main();			/* user program						*/
+	/* "GOTO 40000"									*/
+	}
+
+Initialize() {			/* Initialization Scheduler			65050	*/
+	InitVals();
+	/* "GOSUB 65100"						65100 <-65050	*/
+	InitCmdLine();
+	/* "GOSUB 65150"						65150 <-65052	*/
+	InitUserPrgm();
+	/* "GOSUB 65200"						65200 <-65054	*/
+	InitStdFiles();
+	/* GOSUB 65250"							65250 <-65056	*/
+	OptionalPackages();
+	/* "GOSUB 65300"						65300 <-65058	*/
+	}
+	/* "RETURN"								65098	*/
+
+InitVals() {			/* Initialize Std devices; DEF FNs, I/O values,
+					Char Sets					*/
+	InitSSVs();
+	/* "GOSUB 60000"						60000 <-65100	*/
+	ResetKeyboard();
+	/* "GOSUB 60800"						60800 <-65102	*/
+	DefineFunctions();
+	/* "GOSUB 64000"						64000 <- 65104	*/
+	InitIOvals();
+	/* "GOSUB 64500"						64500 <- 65108	*/
+	InitCharSets();
+	/* "GOSUB 60020"						60020 <- 65112	*/
+	}
+	/* "RETURN"								65148	*/
+
+InitSSVs() {			/* Initialize Search State Variables		60000	*/
+	MoreToScan= ScanResult= FAIL;
+	SelectionLength= 0;
+	/* "SY%(11,0)= 0: SY%(12,0)= 0: SY%(15,0)= 0:"					*/
+	CurrentCursor= UpTo= 1;
+	/* "SY%(13,0)= 1: SY%(14,0)= 1"							*/
+	}
+
+InitIOvals() {			/* Initialize IO values					*/
+	STDIN= KEYBOARD;
+	/* "SY%(1,0)= FNKY%(0)"							64500	*/
+	STDOUT= SCREEN;
+	/* "SY%(2,0)= FNSC%(0)"								*/
+	STDERR= SCREEN;
+	/* "SY%(3,0)= FNSC%(0)"								*/
+	CommandLineFileName= "CMDLINE/SH";
+	/* "SY$(15,0)= "CMDLINE/SH"						64502	*/
+	NL$= newline$;
+	/* "SY$(4,0)= CHR$( 13):"						64504	*/
+	KeyboardByteStreamEOF$= CHR$( 27);
+	/* "SY$(5,0)= CHR$( 27):"	[shift][UpArrow]				*/
+	KeyboardTextStreamEOF$= ".";
+	/* "SY$(6,0)= "."								*/
+	ExitAfterUsage= TRUE;
+	/* "SY%(6,0)= -1"							64506	*/
+	}
+
+InitCharSets() {
+	Init1Set( 8, "0", "9");		/* Numerics					*/
+	/* VA%(0)= 8: VA$(0)= "0": VA$(1)= "9": GOSUB 60010"		60010 <-60020	*/
+	Init1Set( 9, "A", "Z");		/* Uppercase					*/
+	/* VA%(0)= 9: VA$(0)= "A": VA$(1)= "Z": GOSUB 60010"		60010 <-60022	*/
+	Init1Set( 10, "a", "z");	/* lowercase					*/
+	/* VA%(0)= 10: VA$(0)= "a": VA$(1)= "z": GOSUB 60010"		60020 <-60024	*/
+	Whitespace= " " + LF + newline$;
+	/* 'SY$(11,0)= " " + CHR$( 10) + FNNL$(0)'				60028	*/
+	}
+
+Init1Set( sub,	startchar$, endchar$) {	/* fill 1 char set				*/
+	int sc= startchar$, ec= endchar$;
+	/* "X7%= ASC( VA$(0)): X8%= ASC( VA$(1)):"				60010	*/
+	setsize= ec - sc + 1;
+	/* "X6%= X8% - X7% + 1:"							*/
+	char currentset[ setsize]= " ";
+	/* allocate current set with setsize # of spaces				*/
+	/* "SY$(X5%,0)= STRING$( X6%, 32)"						*/
+	for (c= sc; c <= ec; c++)	{
+	/* "FOR X9%= X7% TO X8%: X6%= X9% - X7% + 1:"				60012	*/
+		currentset[c]= (char) c;
+		/* "MID$( SY$(X5%,0), X6%, 1)= CHR$( X9%): NEXT"			*/
+	}
+
+InitCmdLine() {	/* Read CMDLINE/SH, parse command line & program name,
+			argc, argv[]							*/
+	/*
+		'1. TRY TO OPEN "CMDLINE/SH"'
+	*/
+	result= FAIL;
+	ErrorTrap( 65500);
+	/* "ON ERROR GOTO 65500"						65150	*/
+	Open( "CMDLINE/SH");
+	/* 'OPEN "I", 1, "CMDLINE/SH"'						65152	*/
+	/* "ON ERROR GOTO 0"	if any error other than "file not found", fail	65154	*/
+	/*
+		"2. IF CMDLINE FILE EXISTS"
+	*/
+	if (result == SUCCESS) 		/* ie, if unable to open "CMDLINE/SH"		*/
+	/* "IF VR%(0) THEN"							65156	*/
+		return FAIL;
+		/* "VR%(0)= 0: RETURN ' NO IT DOESN'T"					*/
+	/*
+		"3. READ SY$(0..3,0)"
+	*/
+	for (line= 0; line <= 3; line++)
+	/* "FOR X9%= 0 TO 3:"							65158	*/
+		fgets( ioStream$[line], RECORD_END, 1)
+		/* "INPUT #1, SY$(X9%,0): NEXT"						*/
+	fclose( 1);
+	/* "CLOSE #1"									*/
+	/*
+		"4. PARSE CMD LINE IN SY$(0..,0) INTO AV$(0..)
+			ARGC -> SY%(0,0)
+
+		4A. PROGRAM NAME -> AV$(0)"
+	*/
+	argc= 0;
+	/* "SY%(0,0)= 0:"							65160	*/
+	if (!InitScanString( ioStream$[0]))
+	/* "VA$(0)= SY$(0,0): GOSUB 5160"						*/
+		return;			/* no command name or args to parse		*/
+		/* "IF NOT SY%(11,0) RETURN"						*/
+	if (!argv[0]= NextToken( ioStream$[0]))
+	/* "GOSUB 5600: IF NOT SY%(12,0)"					65161	*/
+		return;
+		/* "RETURN"								*/
+	/* "AV$(0)= VR$(0)"							65162	*/
+	/*
+		"4B. ARGS -> AV$(1..N)"
+	*/
+	while (arg$= NextToken( ioStream$[0]), ScanResult) {
+	/* "GOSUB 5600: IF NOT SY%(12,0) RETURN"				65170	*/
+		argc++;
+		/* "SY%(0,0)= SY%(0,0) + 1:"					65172	*/
+		argv[argc]= arg$;
+		/* "AV$(SY%(0,0))= VR$(0)"						*/
+		if (!MoreToScan)
+			return;
+			/* "RETURN"						65174	*/
+		/* "IF SY%(11,0) THEN 65170"						*/
+		}
+	}
+
+InitStdFiles() {	/* redirect stdin, stdout, stderr				*/
+	result= FAIL;	/* default							*/
+	/* "VR%(0)= 0"								65250	*/
+	for (stream= 1; stream <= 3; stream++) {
+	/* "FOR X7%= 1 TO 3:"								*/
+		if (LEN( ioStream$[stream]) > 0) {
+		/* "IF LEN( SY$(X7%,0)) < 1 THEN 65290"					*/
+			/* redirect std I/O						*/
+			if (stream == 1)	/* stdin				*/
+			/* "IF X7% = 1 THEN"					65252	*/
+				getcIsByteStream= TRUE;
+				/* "SY%(4,0)= -1 ' DEFAULT BYTE-STREAM INPUT FOR
+							STDIN FILE"			*/
+			if (INSTR( ioStream$[stream], "-") > 0)
+			/* 'IF INSTR( SY$(X7%,0), "-") > 0 THEN"		65254	*/
+				fd= VAL( ioStream$[stream])
+				/* "VR%(1)= VAL( SY$(X7%,0)): GOTO 65280"		*/
+			elseif ((fd= VAL( ioSteam$[stream])) > 99)) {	/* slot		*/
+				}		/*			reassigned	*/
+			
+			/* "X6%= VAL( SY$(X7%,0)): IF X6% > 99 THEN"		65255	*/
+				/* "VR%(1)= X6%: GOTO 65280"				*/				
+			else {
+				filename$= ioStream$[stream];
+				mode$= MID$( "GPO", stream, 1);
+				/* 'VA$(1)= MID$( "GPO", X7%, 1):'		65256	*/
+				fd= 0;		/* have fOpen() assign file#		*/
+				/* "VA%(1)= 0: VA$(0)= SY$(X7%,0): VA%(0)=0"		*/
+				if (append_pos= INSTR( filename$, "+")) {
+				/* 'X9%= INSTR( VA$(0), "+"): IF X9% THEN'	65257	*/
+					/* Append mode?					*/
+					filename$= LEFT$( filename$, append_pos - 1);
+					/* "VA$(0)= LEFT$( VA$(0), X9% - 1):"		*/
+					mode$= "A";
+					/* 'VA$(1)= "A'					*/
+					}
+				fd= fOpen( filename$, mode$);
+				/* "GOSUB 60500"				65258	*/
+				}
+			StdSlot[stream]= fd;
+			/* "SY%(X7%,0)= VR%(1) ' ASSIGN FD# TO STD FILE#	65280	*/
+			}
+		}
+		/* "NEXT: RETURN"						65290	*/
+	}

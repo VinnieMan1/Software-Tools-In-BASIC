@@ -78,8 +78,8 @@ getc( VA%(0))		Read 1 char/byte from device/file# specified by VA%(0)
 -----------------
 Prerequisite:	If reading from a disk file, it must have first been fOpen()ed.
 Usage:		GOSUB 2000
-Constraints:	VA%(0)	Device (-1..-3) or FD# to read from
-		SY%(4,0) aka "GetcIsByteStream"	-1:	byte-stream I/O
+Argument:	VA%(0)	Device (-1..-3) or FD# to read from
+Constraints:	SY%(4,0) aka "GetcIsByteStream"	-1:	byte-stream I/O
 						0:	text-stream I/O
 Result:		VR%(0)	succeed/fail (-1/0).	Fail on EOF
 Returns:	VR$(0)	one char/byte
@@ -952,6 +952,9 @@ Defined in:	64000
 Used in:	FN TU%()
 Note:		Pseudocode in "Skeleton in PseudoCode"
 
+NL$( -)			newline
+-------			returns newline character
+Defined in:	64008
 
 Memory
 ======

@@ -1,45 +1,67 @@
 PseudoCode Aliases
 ==================
-PseudoCode		SKELETON ref	In:			Notes:
-----------		------------	---			------
+
+#defines
+--------
+
+#define	FAIL			0
+#define SUCCESS			-1
+#define	LF			CHR$( 10)
+#define RECORD_END		256
+#define	KEYBOARD		FN KY%( 0)
+#define SCREEN			FN SC%( 0)
+#define PRINTER			FN PR%( 0)
+#define STDIN			StdSlot[1]
+#define STDOUT			StdSlot[2]
+#define STDERR			StdSlot[3]
+#define puts( string, f)	putc( string, f)
+#define	DCB_START		FN D0( 0)
+#define DCB_SIZE		FN D1( 0)
+
+
+PseudoCode		SKELETON ref	Notes:
+----------		------------	------
 
 argc			SY%(0,0)
 argv[n]			AV$(n)
-Buffer$[file#]		SY$(n,1)	getc()			stored in temp X9$
-CharPos[file#]		SY%(n,2)	getc()			FIELD CharPos AS Spacer$
-CurrentCharCount[file#]	SY!(n,0)	getc()
-CurrentCursor		SY%(13,0)	GetToken()		AKA "CC%"
-e$			VA$(10)		PutErr()		Error messages typically
-								built in VA$(10)
-ErrorFname$		VA$(5)		fOpen()			Error msg function name
-ErrorType$		VA$(6)		fOpen()			Error msg type
-ExitAfterUsage		SY%(6,0)	Usage()			flag
-file#			VA%(0)		getc()			file or device code
-FilesOpen		SY%(5,0)	fOpen()			total files fOpen()ed
-GetcIsByteStream	SY%(4,0)	getc()
-KbdByteStreamEOF$	SY$(5,0)	getc()			default: [Shift][UpArrow]
-KbdTextStreamEOF$	SY$(6,0)	getc()			default: "."
-newline$		CHR$( 13)	getc()			TRS-80 newline= CR
-MatchFlag		VA%(2)		BasicScan()
-MoreToScan		SY%(11,0)	NextToken()		AKA "MR%", "More"
-			VR%(1)		SkipWhile(),		also see MoreToScan
-					SkipUntil()
-NextRec#		X9!		getc()			temporary variable
-OpenType[file#]		SY%(n,1)	getc()
-Result			VR%(0)		getc()			SUCCESS/FAIL
-RecordCount[file#]	SY!(n,1)	getc()
-Return$			VR$(0)		getc()
-ScanResult		SY%(12,0)	NextToken(),		SUCCESS/FAIL
-					GetToken()		AKA "SC%"
-SelectionLength		SY%(15,0),	GetToken()		AKA "SL%"
-			VR%(2)		SkipWhile(),
-					SkipUntil()
-Spacer$			X9$		getc()			temporary variable
-StdSlot[n]		SY%(n,0)	StreamTranslate()	n in 1..3
-TotalCharCount[file#]	SY!(n,2)	getc()
-UpTo			SY%(14,0)				Scanning Upper limit
-			VA%(1)					AKA "UT%"
-Whitespace		SY$(11,0)	NextToken()		character set
+Buffer$[file#]		SY$(n,1)	stored in temp X9$
+CharPos[file#]		SY%(n,2)	FIELD CharPos AS Spacer$
+CommandLine$		SY$(0,0)	command line with args. See ioStream$, below.
+CommandLineFileName	SY$(15,0)	CMDLINE/SH
+CurrentCharCount[file#]	SY!(n,0)	
+CurrentCursor		SY%(13,0)	AKA "CC%"
+DebugLevel		D0		default level 1. Can be tested when debugging
+e$			VA$(10)		Error messages typically
+					built in VA$(10)
+ErrorFname$		VA$(5)		Error msg function name
+ErrorType$		VA$(6)		Error msg type
+ExitAfterUsage		SY%(6,0)	flag
+file#			VA%(0)		file or device code
+FilesOpen		SY%(5,0)	total files fOpen()ed
+GetcIsByteStream	SY%(4,0)	
+ioStream$[]		SY$(0..3,0)	first 4 lines of CMDLINE/SH; see CommandLine$,
+						above
+KbdByteStreamEOF$	SY$(5,0)	default: [Shift][UpArrow]
+KbdTextStreamEOF$	SY$(6,0)	default: "."
+newline$		CHR$( 13)	TRS-80 newline= CR
+MatchFlag		VA%(2)		
+MoreToScan		SY%(11,0)	AKA "MR%", "More"
+			VR%(1)		also see MoreToScan
+NextRec#		X9!		temporary variable
+OpenType[file#]		SY%(n,1)	
+Result			VR%(0)		SUCCESS/FAIL
+RecordCount[file#]	SY!(n,1)	
+Return$			VR$(0)		
+ScanResult		SY%(12,0)	SUCCESS/FAIL
+					AKA "SC%"
+SelectionLength		SY%(15,0),	AKA "SL%"
+			VR%(2)		
+Spacer$			X9$		temporary variable
+StdSlot[n]		SY%(n,0)	n in 1..3
+TotalCharCount[file#]	SY!(n,2)	
+UpTo			SY%(14,0)	Scanning Upper limit
+			VA%(1)		AKA "UT%"
+Whitespace		SY$(11,0)	character set
 
 
 Skeleton refs
@@ -71,6 +93,8 @@ Command-line arguments
 ......................
 SY%(0,0)		argc			0..# of args	returned by FN AC%( 0)
 AV$(0..FN AC%(0))	argv[]
+SY$(0,0)		CommandLine$		command line with args.
+SY$(0..3,0)		ioStream$[]		first 4 lines of CMDLINE/SH
 
 I/O
 ...
@@ -116,3 +140,5 @@ Misc System Globals
 ...................
 
 SY%(6,0)		ExitAfterUsage		0/-1
+SY$(15,0)		CommandLineFileName	CMDLINE/SH
+D0			DebugLevel		default level: 1
